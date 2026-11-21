@@ -4,8 +4,7 @@
 !.env.example
 
 # Python virtual environments
-.venv-nonuse/
-.venv_old/
+.venv/
 venv/
 
 # Python cache
