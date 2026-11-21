@@ -1,0 +1,112 @@
+# MeetMind AI — requirements.txt
+
+# ── Streamlit application and developer experience ───────────────────────────
+streamlit==1.66.1                 # Main web UI, file uploads, session state, and app execution
+streamlit-extras==1.6.0           # Additional Streamlit widgets and UI utilities
+watchdog==6.0.0                   # File-change watcher for Streamlit development reloads
+watchfiles==1.3.0                 # Fast file watching for development tools
+uvicorn==0.54.0                   # ASGI server used by selected web/runtime integrations
+
+# ── Configuration ────────────────────────────────────────────────────────────
+python-dotenv==1.2.4              # Loads API keys and settings from the .env file
+PyYAML==6.0.3                     # YAML configuration parsing
+toml==0.10.2                      # TOML configuration parsing
+
+# ── Supabase authentication, database, and storage ────────────────────────────
+supabase==2.33.0                  # Supabase client for authentication and database operations
+postgrest==2.33.0                 # Supabase PostgREST database API integration
+realtime==2.33.0                  # Supabase realtime client integration
+storage3==2.33.0                  # Supabase object-storage integration
+supabase-auth==2.33.0             # Supabase authentication component
+supabase-functions==2.33.0        # Supabase Edge Functions client component
+PyJWT==2.15.1                     # JSON Web Token handling for authentication integrations
+bcrypt==5.0.0                     # Password-hashing support used by authentication dependencies
+
+# ── Gemini API and LangChain orchestration ───────────────────────────────────
+google-genai==2.33.0              # Google GenAI SDK for Gemini model API access
+google-auth==2.62.0               # Google API authentication support
+langchain==1.4.7                  # LLM application orchestration framework
+langchain-core==1.7.0             # LCEL runnables, prompts, and output parsers
+langchain-google-genai==4.4.2     # LangChain integration for Google Gemini
+langchain-text-splitters==1.1.3   # Splits long transcripts into chunks for summaries and RAG
+langsmith==0.14.12                # LangChain tracing, debugging, and observability
+
+# ── LangChain integrations and optional orchestration ─────────────────────────
+langchain-community==0.4.2        # Community integrations and document/embedding utilities
+langchain-chroma==1.1.0           # LangChain integration for ChromaDB
+langchain-huggingface==1.2.3      # LangChain integration for Hugging Face models and embeddings
+langchain-classic==1.0.8          # Legacy chain interfaces, if older chain APIs are used
+langgraph==1.2.17                 # Graph-based orchestration for multi-step workflows, if used
+langgraph-checkpoint==4.3.0       # State persistence/checkpointing for LangGraph
+langgraph-prebuilt==1.1.1         # Prebuilt LangGraph components
+langgraph-sdk==0.4.9              # LangGraph SDK
+
+# ── RAG, vector database, and Hugging Face models ─────────────────────────────
+chromadb==1.5.9                   # Vector database for transcript embeddings and retrieval
+sentence-transformers==6.2.0      # Semantic text embeddings for RAG
+huggingface_hub==1.33.0           # Downloads and manages Hugging Face models
+transformers==5.20.2              # Transformer model and tokenizer utilities
+tokenizers==0.23.3                # Fast tokenization backend for Transformers
+safetensors==0.8.0                # Safe model-weight serialization
+
+# ── Audio/video acquisition, processing, and speech recognition ────────────────
+yt-dlp==2026.10.21                # Downloads audio/video from YouTube and supported sites
+pydub==0.25.1                     # Loads, converts, slices, and prepares audio segments
+ffmpeg-python==0.2.0              # Python wrapper for FFmpeg commands; FFmpeg executable is separate
+openai-whisper==20250625          # Local Whisper speech-to-text transcription
+torch==2.11.0+cu128               # PyTorch backend; supplied environment uses CUDA 12.8
+torchaudio==2.11.0+cu128          # PyTorch audio utilities matching the installed CUDA build
+
+# ── Translation and Indic language support ────────────────────────────────────
+deep-translator==1.11.4           # Translates transcript text using supported online services
+indic_transliteration==2.3.82     # Indic-script transliteration and script conversion
+
+# ── Numerical computing and machine learning ─────────────────────────────────
+numpy==2.4.6                      # Numerical arrays and core scientific computing
+scipy==1.17.1                     # Scientific computing and signal-processing utilities
+scikit-learn==1.9.1               # Machine-learning utilities and model evaluation
+joblib==1.6.0                     # Serialization and parallel-computing utilities
+numba==0.68.0                     # JIT acceleration for numerical workloads
+llvmlite==0.50.0                  # LLVM backend used by Numba
+tqdm==4.70.1                      # Progress bars for long-running tasks
+
+# ── Data handling and visualization ───────────────────────────────────────────
+pandas==3.1.0                     # Tabular data processing and analysis
+plotly==7.1.0                     # Interactive charts and visualizations
+altair==6.3.0                     # Declarative statistical visualizations
+pillow==13.0.0                    # Image loading and processing
+pyarrow==26.0.0                   # Columnar data interchange for data/visualization tools
+
+# ── HTTP and API communication ────────────────────────────────────────────────
+requests==2.34.2                  # HTTP requests to Sarvam and other external APIs
+httpx==0.28.1                     # HTTP client used by API integrations
+aiohttp==3.14.5                   # Async HTTP client used by selected SDK integrations
+websockets==15.0.1                # WebSocket support for realtime integrations
+
+# ── PDF and document export ───────────────────────────────────────────────────
+fpdf2==2.8.9                      # Generates downloadable PDF reports
+reportlab==5.1.0                  # PDF generation and document layout utilities
+
+# ── Additional utilities from the installed project environment ───────────────
+beautifulsoup4==4.15.0            # HTML parsing, if web-page content extraction is used
+tiktoken==0.14.0                  # Token counting for LLM workflows
+rich==15.0.0                      # Readable terminal output for debugging
+typer==0.27.3                     # CLI creation utility, if command-line tools are used
+orjson==3.13.0                    # Fast JSON serialization used by selected dependencies
+
+# ── External system dependency (not installed by pip) ─────────────────────────
+# Install FFmpeg separately and add its executable directory to PATH.
+# pydub, Whisper, and yt-dlp rely on FFmpeg for media decoding/conversion.
+#
+# ── CUDA note ────────────────────────────────────────────────────────────────
+# torch and torchaudio above match the supplied local environment (+cu128).
+# For another machine or cloud host, install PyTorch wheels matching that
+# platform and hardware. CPU-only deployment may require CPU PyTorch wheels.
+#
+# ── Legacy packages intentionally omitted ────────────────────────────────────
+# langchain-mistralai and mistralai were installed in the supplied environment,
+# but are omitted because the current application code has migrated to Gemini.
+# Re-add them only if Mistral integration is reintroduced.
+#
+# Some entries above are optional relative to the latest source files reviewed.
+# Keep optional packages only while their related feature/module is used.

@@ -1,0 +1,31 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python virtual environments
+.venv-nonuse/
+.venv_old/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Uploaded and downloaded media
+uploads/
+downloads/
+downloades/
+
+# Local databases and vector storage
+vector_db/
+transcription_cache/
+
+# Local development files
+.DS_Store
+Thumbs.db
+
+backups/
+Requirements-Full.txt
+.vscode/
+*.log
