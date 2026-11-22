@@ -48,6 +48,129 @@ div.stButton>button[kind="primary"]{background:linear-gradient(100deg,#8b7cff,#5
 [data-testid="stFileUploader"]{background:rgba(9,15,29,.42);border:1px dashed rgba(139,124,255,.45);border-radius:14px}
 hr{border-color:var(--border)}
 div[data-testid="InputInstructions"]{display:none}
+
+/* Responsive layout: tablet and mobile */
+@media (max-width: 768px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 4rem !important;
+        overflow: visible !important;
+    }
+
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+    }
+
+    [data-testid="column"] {
+        width: 100% !important;
+        min-width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+
+    .hero h1 {
+        font-size: clamp(1.75rem, 8vw, 2.4rem) !important;
+        line-height: 1.15 !important;
+    }
+
+    .panel, .meeting-card, .metric {
+        padding: 14px !important;
+        border-radius: 13px !important;
+    }
+
+    .brand {
+        margin-bottom: 18px !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        max-width: 100% !important;
+        scrollbar-width: thin;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+    }
+
+    div.stButton > button {
+        width: 100% !important;
+        min-height: 44px !important;
+        white-space: normal !important;
+    }
+
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea,
+    [data-testid="stNumberInput"] input {
+        font-size: 16px !important;
+    }
+
+    .tag {
+        margin-bottom: 6px !important;
+    }
+
+    [data-testid="stFileUploader"] section {
+        padding: 0.75rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    [data-testid="stMainBlockContainer"] {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    .brand-icon {
+        width: 38px !important;
+        height: 38px !important;
+        font-size: 20px !important;
+    }
+
+    .brand-name {
+        font-size: 18px !important;
+    }
+
+    .panel-title {
+        font-size: 16px !important;
+    }
+
+    .metric-value {
+        font-size: 24px !important;
+    }
+
+    .notice {
+        padding: 10px 11px !important;
+        overflow-wrap: anywhere;
+    }
+}
+/* Improve logo visibility in the login/register card */
+@media (max-width: 480px) {
+    .brand {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        margin-top: 12px !important;
+        margin-bottom: 22px !important;
+        overflow: visible !important;
+    }
+
+    .brand-icon {
+        width: 43px !important;
+        height: 43px !important;
+        min-width: 43px !important;
+        min-height: 43px !important;
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: visible !important;
+        line-height: 1 !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -682,7 +805,7 @@ elif st.session_state.page=="Meeting details":
       <style>
         html, body { margin: 0; padding: 0; background: transparent; }
         #meetmind-chat-panel {
-          height: 300px; overflow-y: auto; box-sizing: border-box;
+          height: min(42vh, 300px); min-height: 220px; overflow-y: auto; box-sizing: border-box;
           padding: 12px 16px; border: 1px solid rgba(158,174,210,.25);
           border-radius: 12px; background: rgba(17,26,46,.65);
           color: #eef2ff; font-family: Arial, sans-serif; font-size: 14px;
@@ -701,7 +824,7 @@ elif st.session_state.page=="Meeting details":
       if (panel) { panel.scrollTop = panel.scrollHeight; }
     </script>
     """.replace("__CHAT_MESSAGES__", "".join(chat_messages))
-    components.html(chat_panel_html, height=322, scrolling=False)
+    components.html(chat_panel_html, height=342, scrolling=False)
 
 elif st.session_state.page=="Settings":
     st.subheader("Settings")
