@@ -50,7 +50,7 @@ tokenizers==0.23.3                # Fast tokenization backend for Transformers
 safetensors==0.8.0                # Safe model-weight serialization
 
 # ── Audio/video acquisition, processing, and speech recognition ────────────────
-yt-dlp==2026.10.21                # Downloads audio/video from YouTube and supported sites
+yt-dlp[default]==2026.10.21                # Downloads audio/video from YouTube and supported sites
 pydub==0.25.1                     # Loads, converts, slices, and prepares audio segments
 ffmpeg-python==0.2.0              # Python wrapper for FFmpeg commands; FFmpeg executable is separate
 openai-whisper==20250625          # Local Whisper speech-to-text transcription
