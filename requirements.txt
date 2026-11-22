@@ -54,8 +54,8 @@ yt-dlp==2026.10.21                # Downloads audio/video from YouTube and suppo
 pydub==0.25.1                     # Loads, converts, slices, and prepares audio segments
 ffmpeg-python==0.2.0              # Python wrapper for FFmpeg commands; FFmpeg executable is separate
 openai-whisper==20250625          # Local Whisper speech-to-text transcription
-torch==2.11.0+cu128               # PyTorch backend; supplied environment uses CUDA 12.8
-torchaudio==2.11.0+cu128          # PyTorch audio utilities matching the installed CUDA build
+torch==2.11.0                     # PyTorch backend; supplied environment uses CUDA 12.8
+torchaudio==2.11.0          # PyTorch audio utilities matching the installed CUDA build
 
 # ── Translation and Indic language support ────────────────────────────────────
 deep-translator==1.11.4           # Translates transcript text using supported online services
