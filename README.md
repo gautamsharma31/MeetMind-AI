@@ -1,4 +1,10 @@
-::: {align="center"}
+<div align="center">
+
+# 🧠 MeetMind AI
+
+### Turn every meeting into searchable knowledge.
+
+</div>
 # 🧠 MeetMind AI
 
 ### Turn every meeting into searchable knowledge.
@@ -561,7 +567,13 @@ commits or issue reports.
 
 ------------------------------------------------------------------------
 
-::: {align="center"}
+<div align="center">
+
+### 🧠 MeetMind AI
+
+**Listen less. Understand more. Never lose an insight.**
+
+</div>
 ### 🧠 MeetMind AI
 
 **Listen less. Understand more. Never lose an insight.**
