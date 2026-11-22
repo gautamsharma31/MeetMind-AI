@@ -49,8 +49,8 @@ div.stButton>button[kind="primary"]{background:linear-gradient(100deg,#8b7cff,#5
 hr{border-color:var(--border)}
 div[data-testid="InputInstructions"]{display:none}
 
-/* Responsive layout: tablet and mobile */
-@media (max-width: 768px) {
+/* Responsive layout: stack columns only on genuinely narrow screens */
+@media (max-width: 600px) {
     [data-testid="stMainBlockContainer"] {
         padding-left: 1rem !important;
         padding-right: 1rem !important;
@@ -115,6 +115,19 @@ div[data-testid="InputInstructions"]{display:none}
 
     [data-testid="stFileUploader"] section {
         padding: 0.75rem !important;
+    }
+}
+
+/* Tablet and laptop widths: retain horizontal Streamlit columns. */
+@media (min-width: 601px) {
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        align-items: stretch !important;
+    }
+
+    [data-testid="column"] {
+        min-width: 0 !important;
+        flex: 1 1 0% !important;
     }
 }
 
