@@ -1,5 +1,6 @@
 import whisper
 import os
+import torch
 import requests
 from pydub import AudioSegment
 
@@ -19,22 +20,28 @@ _model = None
 
 
 def load_model():
+    global _model
 
-    global _model  
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if _model is None: 
-        print(f"Loading Whisper model: {WHISPER_MODEL} ...")
-        _model = whisper.load_model(WHISPER_MODEL) 
-        print("Whisper model loaded.")
-    return _model 
+    if _model is None:
+        print(f"Loading Whisper model: {WHISPER_MODEL} on {device}...")
+        _model = whisper.load_model(WHISPER_MODEL, device=device)
+        print(f"Whisper model loaded successfully on {device}.")
+
+    return _model
 
 
 def transcribe_chunk_whisper(chunk_path: str) -> str:
+    model = load_model()
 
-    model = load_model()  
+    result = model.transcribe(
+        chunk_path,
+        task="transcribe",
+        fp16=torch.cuda.is_available()
+    )
 
-    result = model.transcribe(chunk_path, task="transcribe")  
-    return result["text"]  
+    return result["text"] 
 
 
 def _send_to_sarvam(piece_path: str) -> str:

@@ -3,8 +3,8 @@ import json
 import os
 import uuid
 from pathlib import Path
-
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from supabase import create_client
 from deep_translator import GoogleTranslator
@@ -47,6 +47,7 @@ div.stButton>button{border-radius:10px;min-height:40px;font-weight:700;border:1p
 div.stButton>button[kind="primary"]{background:linear-gradient(100deg,#8b7cff,#5bbfd7);color:#091020;border:0}
 [data-testid="stFileUploader"]{background:rgba(9,15,29,.42);border:1px dashed rgba(139,124,255,.45);border-radius:14px}
 hr{border-color:var(--border)}
+div[data-testid="InputInstructions"]{display:none}
 </style>
 """, unsafe_allow_html=True)
 
@@ -77,6 +78,8 @@ if "meetings" not in st.session_state:
     st.session_state.meetings = []
 if "meetings_loaded_for" not in st.session_state:
     st.session_state.meetings_loaded_for = None
+if "pending_delete_meeting_id" not in st.session_state:
+    st.session_state.pending_delete_meeting_id = None
 
 def get_display_transcript(meeting, display_language):
     """Load a saved translation or generate it once and persist it in Supabase."""
@@ -206,6 +209,84 @@ def load_user_meetings():
     st.session_state.meetings_loaded_for = user_id
 
 
+def delete_meeting_from_account(meeting_id):
+    """Delete only the signed-in user's meeting and its dedicated RAG collection."""
+    user_id = st.session_state.auth_user["id"]
+
+    (supabase.table("meetings")
+        .delete()
+        .eq("id", meeting_id)
+        .eq("user_id", user_id)
+        .execute())
+
+    # Verify that the row is actually gone (for example, an RLS policy did not silently block it).
+    remaining = (supabase.table("meetings")
+        .select("id")
+        .eq("id", meeting_id)
+        .eq("user_id", user_id)
+        .execute())
+    if remaining.data:
+        raise RuntimeError("The meeting was not deleted. Check the Supabase DELETE permission/RLS policy.")
+
+    # Remove the meeting's separate Chroma collection. A cleanup failure must not undo the DB deletion.
+    vector_cleanup_error = None
+    try:
+        from core.vector_store import delete_vector_store
+        delete_vector_store(meeting_id)
+    except Exception as exc:
+        vector_cleanup_error = str(exc)
+
+    cache = st.session_state.get("transcript_translation_cache", {})
+    for key in list(cache):
+        if key.startswith(f"{meeting_id}:"):
+            cache.pop(key, None)
+
+    st.session_state.chat_history = []
+    st.session_state.active_chat_meeting_id = None
+    st.session_state.pending_delete_meeting_id = None
+    st.session_state.meetings = [
+        meeting for meeting in st.session_state.meetings
+        if str(meeting.get("id")) != str(meeting_id)
+    ]
+    st.session_state.selected = 0
+    st.session_state.page = "Meeting library"
+    return vector_cleanup_error
+
+
+def render_meeting_delete_controls(meeting, location_key):
+    """Show a two-step delete confirmation for a saved meeting."""
+    meeting_id = meeting.get("id")
+    if not meeting_id:
+        st.warning("This meeting has no saved database ID and cannot be deleted here.")
+        return
+
+    if st.button("🗑 Delete meeting", key=f"delete_{location_key}_{meeting_id}"):
+        st.session_state.pending_delete_meeting_id = str(meeting_id)
+        st.rerun()
+
+    if st.session_state.pending_delete_meeting_id == str(meeting_id):
+        st.warning(
+            f'Permanently delete "{meeting.get("title", "this meeting")}"? '
+            "Its summary, transcript, translations, and saved Q&A history will be deleted."
+        )
+        confirm_col, cancel_col = st.columns(2)
+        with confirm_col:
+            if st.button("Yes, permanently delete", type="primary",
+                         key=f"confirm_delete_{location_key}_{meeting_id}"):
+                try:
+                    cleanup_error = delete_meeting_from_account(meeting_id)
+                    st.success("Meeting deleted from your account.")
+                    if cleanup_error:
+                        st.warning(f"The meeting was deleted, but its local RAG data could not be cleaned up: {cleanup_error}")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Could not delete the meeting: {exc}")
+        with cancel_col:
+            if st.button("Cancel", key=f"cancel_delete_{location_key}_{meeting_id}"):
+                st.session_state.pending_delete_meeting_id = None
+                st.rerun()
+
+
 # Require authentication before showing the workspace.
 if not st.session_state.auth_user:
     brand()
@@ -228,13 +309,17 @@ if not st.session_state.auth_user:
         with st.container(border=True):
             brand()
             mode = st.radio("Welcome", ["Log in", "Create account"], horizontal=True)
-            email = st.text_input("Email address", placeholder="you@example.com")
-            password = st.text_input("Password", type="password", placeholder="At least 8 characters")
-            confirm = ""
-            if mode == "Create account":
-                confirm = st.text_input("Confirm password", type="password")
 
-            if st.button("Continue", type="primary", use_container_width=True):
+            # A Streamlit form allows Enter to submit from the email/password fields.
+            with st.form("authentication_form", clear_on_submit=False):
+                email = st.text_input("Email address", placeholder="you@example.com")
+                password = st.text_input("Password", type="password", placeholder="At least 8 characters")
+                confirm = ""
+                if mode == "Create account":
+                    confirm = st.text_input("Confirm password", type="password")
+                submitted = st.form_submit_button("Continue", type="primary", use_container_width=True)
+
+            if submitted:
                 if not email or "@" not in email:
                     st.error("Enter a valid email address.")
                 elif len(password) < 8:
@@ -296,6 +381,7 @@ with st.sidebar:
             st.session_state.active_chat_meeting_id = None
             st.session_state.meetings = []
             st.session_state.meetings_loaded_for = None
+            st.session_state.pending_delete_meeting_id = None
             st.rerun()
 
 meetings=st.session_state.meetings
@@ -374,8 +460,7 @@ elif st.session_state.page=="New analysis":
                     decisions = extract_key_decisions(transcript)
                     questions = extract_questions(transcript)
 
-                    st.write("6/6 · Building meeting Q&A (RAG)...")
-                    rag_chain = build_rag_chain(transcript)
+                    st.write("6/6 · Saving meeting and preparing meeting Q&A (RAG)...")
 
                     final_title = meeting_name.strip() if meeting_name.strip() else str(generated_title).strip()
                     duration_label = (
@@ -395,7 +480,7 @@ elif st.session_state.page=="New analysis":
                         "decisions": decisions if isinstance(decisions, list) else str(decisions).splitlines(),
                         "questions": questions if isinstance(questions, list) else str(questions).splitlines(),
                         "transcript": transcript,
-                        "rag_chain": rag_chain,
+                        "rag_chain": None,
                     }
                     source_type = "youtube" if isinstance(source, str) and source.strip().lower().startswith(("https://", "http://")) else "upload"
                     payload = {
@@ -418,7 +503,13 @@ elif st.session_state.page=="New analysis":
                     if not saved_response.data:
                         raise RuntimeError("Supabase did not return the saved meeting record.")
                     saved_meeting = _meeting_from_row(saved_response.data[0])
-                    saved_meeting["rag_chain"] = rag_chain
+                    try:
+                        rag_chain = build_rag_chain(transcript, str(saved_meeting["id"]))
+                        saved_meeting["rag_chain"] = rag_chain
+                    except Exception as rag_exc:
+                        # The saved meeting remains available; RAG can be rebuilt when the user opens it.
+                        saved_meeting["rag_chain"] = None
+                        st.warning(f"Meeting saved, but RAG setup failed and will be retried when you open it: {rag_exc}")
                     st.session_state.meetings.insert(0, saved_meeting)
                     st.session_state.selected = 0
                     st.session_state.page = "Meeting details"
@@ -439,24 +530,31 @@ elif st.session_state.page=="Meeting library":
     for m in filtered:
         i=meetings.index(m)
         st.markdown(f'<div class="meeting-card"><div class="meeting-title">{html.escape(m["title"])}</div><div class="meeting-meta">{html.escape(m["date"])} · {html.escape(m["duration"])} · {html.escape(m["language"])} · {html.escape(m["status"])}</div></div>',unsafe_allow_html=True)
-        if st.button("View results",key=f"lib_{i}"): st.session_state.selected=i; st.session_state.page="Meeting details"; st.rerun()
+        view_col, delete_col = st.columns([1, 1])
+        with view_col:
+            if st.button("View results",key=f"lib_{i}"):
+                st.session_state.selected=i
+                st.session_state.page="Meeting details"
+                st.rerun()
+        with delete_col:
+            render_meeting_delete_controls(m, f"library_{i}")
 
 elif st.session_state.page=="Meeting details":
+    if not meetings:
+        st.info("Your meeting library is empty.")
+        st.session_state.page = "Meeting library"
+        st.rerun()
     i=st.session_state.selected
+    if i < 0 or i >= len(meetings):
+        st.session_state.selected = 0
+        st.rerun()
     m=meetings[i]
     st.title(m["title"])
+    render_meeting_delete_controls(m, f"details_{m.get('id', i)}")
     st.markdown(f'<span class="tag">{html.escape(m["language"])}</span><span class="tag">{html.escape(m["duration"])}</span><span class="tag">{html.escape(m["status"])}</span>',unsafe_allow_html=True)
-    t1,t2,t3,t4,t5=st.tabs(["Summary","Action items","Decisions","Open questions","Transcript"])
+    t1,t2,t3,t4=st.tabs(["Summary","Decisions","Open questions","Transcript"])
     with t1: st.write(m["summary"])
     with t2:
-        action_values = m.get("actions", [])
-        action_values = [str(x).strip("- •\\t ") for x in action_values if str(x).strip()] if isinstance(action_values, list) else [line.strip("- •\\t ") for line in str(action_values).splitlines() if line.strip()]
-        if action_values:
-            for action_index, action in enumerate(action_values):
-                st.checkbox(action, key=f"act_{i}_{action_index}")
-        else:
-            st.info("No action items were extracted.")
-    with t3:
         decision_values = m.get("decisions", [])
         decision_values = decision_values if isinstance(decision_values, list) else str(decision_values).splitlines()
         decision_values = [str(x).strip("- •\\t ") for x in decision_values if str(x).strip()]
@@ -464,7 +562,7 @@ elif st.session_state.page=="Meeting details":
             st.markdown("- " + x)
         if not decision_values:
             st.info("No decisions were extracted.")
-    with t4:
+    with t3:
         question_values = m.get("questions", [])
         question_values = question_values if isinstance(question_values, list) else str(question_values).splitlines()
         question_values = [str(x).strip("- •\\t ") for x in question_values if str(x).strip()]
@@ -472,7 +570,7 @@ elif st.session_state.page=="Meeting details":
             st.markdown("- " + x)
         if not question_values:
             st.info("No open questions were extracted.")
-    with t5:
+    with t4:
         transcript_language = st.selectbox(
             "Transcript language",
             ["Original", "Hindi (हिंदी)", "Hinglish (Roman Hindi)"],
@@ -500,6 +598,11 @@ elif st.session_state.page=="Meeting details":
     st.caption("Try one of these questions, or write your own.")
     question_key = f"meeting_question_{i}"
     auto_submit_key = f"auto_submit_question_{i}"
+    clear_question_key = f"clear_question_input_{i}"
+    # Clear the input on the rerun after a suggestion has been submitted.
+    if st.session_state.pop(clear_question_key, False):
+        st.session_state[question_key] = ""
+
     suggestions = [
         "Summarize the key takeaways",
         "What were the main decisions?",
@@ -514,15 +617,18 @@ elif st.session_state.page=="Meeting details":
                 st.session_state[auto_submit_key] = True
                 st.rerun()
 
-    question = st.text_input(
-        "Your question",
-        placeholder="Ask anything about this meeting...",
-        key=question_key,
-    )
-    ask_clicked = st.button("Ask question", type="primary", key=f"ask_question_{i}")
+    # Enter submits the question; clear_on_submit empties the input immediately afterward.
+    with st.form(key=f"meeting_question_form_{i}", clear_on_submit=True):
+        question = st.text_input(
+            "Your question",
+            placeholder="Ask anything about this meeting...",
+            key=question_key,
+        )
+        ask_clicked = st.form_submit_button("Ask question", type="primary")
     auto_submit = st.session_state.pop(auto_submit_key, False)
     if ask_clicked or auto_submit:
-        question = st.session_state.get(question_key, "")
+        # Use the submitted form value; Streamlit clears the widget after form submission.
+        question = question if ask_clicked else st.session_state.get(question_key, "")
         rag_chain = m.get("rag_chain")
         if not question.strip():
             st.warning("Enter a question first.")
@@ -532,7 +638,7 @@ elif st.session_state.page=="Meeting details":
                     if not rag_chain:
                         if not m.get("transcript", "").strip():
                             raise RuntimeError("This saved meeting has no transcript to search.")
-                        rag_chain = build_rag_chain(m["transcript"])
+                        rag_chain = build_rag_chain(m["transcript"], str(m["id"]))
                         m["rag_chain"] = rag_chain
                     answer = ask_question(rag_chain, question.strip())
 
@@ -550,13 +656,52 @@ elif st.session_state.page=="Meeting details":
 
                 st.session_state.chat_history = updated_history
                 m["chat_history"] = updated_history
+                # Also clear the input after suggestion-button submissions.
+                st.session_state[clear_question_key] = True
                 st.rerun()
             except Exception as exc:
                 st.error(f"Could not answer/save this question: {exc}")
 
-    for chat_index, chat_item in enumerate(st.session_state.chat_history, start=1):
-        st.markdown(f"**You:** {chat_item['question']}")
-        st.markdown(f"**MeetMind AI:** {chat_item['answer']}")
+    # Render the conversation in a scrollable panel and automatically jump to the latest reply.
+    chat_messages = []
+    if not st.session_state.chat_history:
+        chat_messages.append(
+            "<p class=\"empty\">Your questions and MeetMind AI&#39;s answers will appear here.</p>"
+        )
+    else:
+        for chat_item in st.session_state.chat_history:
+            chat_messages.append(
+                '<div class="chat-entry">'
+                f'<p><strong>You:</strong><br>{html.escape(str(chat_item.get("question", ""))).replace(chr(10), "<br>")}</p>'
+                f'<p><strong>MeetMind AI:</strong><br>{html.escape(str(chat_item.get("answer", ""))).replace(chr(10), "<br>")}</p>'
+                '</div>'
+            )
+
+    chat_panel_html = """
+    <div id="meetmind-chat-panel">
+      <style>
+        html, body { margin: 0; padding: 0; background: transparent; }
+        #meetmind-chat-panel {
+          height: 300px; overflow-y: auto; box-sizing: border-box;
+          padding: 12px 16px; border: 1px solid rgba(158,174,210,.25);
+          border-radius: 12px; background: rgba(17,26,46,.65);
+          color: #eef2ff; font-family: Arial, sans-serif; font-size: 14px;
+        }
+        .chat-entry { padding: 4px 0 12px; margin-bottom: 12px;
+                      border-bottom: 1px solid rgba(158,174,210,.16); line-height: 1.55; }
+        .chat-entry:last-child { border-bottom: 0; margin-bottom: 0; }
+        .chat-entry p { margin: 4px 0 10px; white-space: normal; overflow-wrap: anywhere; }
+        .chat-entry strong { color: #a99cff; }
+        .empty { color: #9aa8c7; }
+      </style>
+      __CHAT_MESSAGES__
+    </div>
+    <script>
+      const panel = document.getElementById('meetmind-chat-panel');
+      if (panel) { panel.scrollTop = panel.scrollHeight; }
+    </script>
+    """.replace("__CHAT_MESSAGES__", "".join(chat_messages))
+    components.html(chat_panel_html, height=322, scrolling=False)
 
 elif st.session_state.page=="Settings":
     st.subheader("Settings")

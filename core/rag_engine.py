@@ -1,72 +1,33 @@
 import os
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+
 from core.vector_store import build_vector_store, load_vector_store, get_retriever
+
 
 def get_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-3.5-flash-lite",
-        gemini_api_key=os.getenv("GEMINI_API_KEY"),
+        google_api_key=os.getenv("GEMINI_API_KEY"),
         temperature=0.3,
     )
 
+
 def format_docs(docs):
-    return "\n\n".join([doc.page_content for doc in docs])
-
-def build_rag_chain(transcript:str):
-
-    vector_store = build_vector_store(transcript)
-
-    retriever = get_retriever(vector_store, k = 4)
-
-    llm = get_llm()
-
-    prompt = ChatPromptTemplate.from_messages(
-
-        [(
-            "system",
-            """You are an expert meeting assistant. Answer the user's question 
-based ONLY on the meeting transcript context provided below.
-
-If the answer is not found in the context, say: 
-"I could not find this information in the meeting transcript."
-
-Always be concise and precise. If quoting someone, mention it clearly.
-
-Context from meeting transcript:
-{context}""",
-        ),
-        ("human", "{question}"),
-    ]
-    )
-
-    #full LCEL Rag pipeline 
-
-    rag_chain = (
-
-        {"context" : retriever | RunnableLambda(format_docs),
-         "question": RunnablePassthrough()
-         }
-         |prompt|llm|StrOutputParser()
-    )
-
-    return rag_chain
+    return "\n\n".join(doc.page_content for doc in docs)
 
 
-def load_rag_chain():
-    vector_store = load_vector_store()
-    retriver = get_retriever()
-
-    llm = get_llm()
+def _make_rag_chain(retriever):
     prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            """You are an expert meeting assistant. Answer the user's question 
+            """You are an expert meeting assistant. Answer the user's question
 based ONLY on the meeting transcript context provided below.
 
-If the answer is not found in the context, say: 
+If the answer is not found in the context, say:
 "I could not find this information in the meeting transcript."
 
 Always be concise and precise. If quoting someone, mention it clearly.
@@ -77,37 +38,28 @@ Context from meeting transcript:
         ("human", "{question}"),
     ])
 
-    rag_chain = (
+    return (
         {
-            "context":  retriver| RunnableLambda(format_docs),
+            "context": retriever | RunnableLambda(format_docs),
             "question": RunnablePassthrough(),
         }
         | prompt
-        | llm
+        | get_llm()
         | StrOutputParser()
     )
 
-    return rag_chain
+
+def build_rag_chain(transcript: str, meeting_id: str):
+    """Create a RAG chain isolated to the supplied meeting ID."""
+    vector_store = build_vector_store(transcript, meeting_id)
+    return _make_rag_chain(get_retriever(vector_store, k=4))
 
 
-# def ask_question(rag_chain, question:str) -> str:
-#     print(f"Question : {question}")
-#     answer = rag_chain.invoke(question)
-#     print(f"answer :{answer}")
-#     return answer
+def load_rag_chain(meeting_id: str):
+    """Load the existing isolated RAG collection for one meeting."""
+    vector_store = load_vector_store(meeting_id)
+    return _make_rag_chain(get_retriever(vector_store, k=4))
 
 
 def ask_question(rag_chain, question: str) -> str:
-    print(f"\nQuestion: {question}")
-
-    try:
-        answer = rag_chain.invoke(question)
-
-        print(f"Answer type: {type(answer)}")
-        print(f"Answer value: {repr(answer)}")
-
-        return str(answer)
-
-    except Exception as e:
-        print(f"RAG ERROR: {type(e).__name__}: {e}")
-        raise
+    return rag_chain.invoke(question)
