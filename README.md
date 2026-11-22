@@ -5,9 +5,7 @@
 ### Turn every meeting into searchable knowledge.
 
 </div>
-# 🧠 MeetMind AI
 
-### Turn every meeting into searchable knowledge.
 
 An AI-powered meeting intelligence workspace that transforms audio and
 video recordings into structured insights---summaries, decisions, action
@@ -574,7 +572,3 @@ commits or issue reports.
 **Listen less. Understand more. Never lose an insight.**
 
 </div>
-### 🧠 MeetMind AI
-
-**Listen less. Understand more. Never lose an insight.**
-:::
